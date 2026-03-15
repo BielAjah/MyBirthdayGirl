@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Our Journal of Love ❤️</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Dancing+Script:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'BoldPixels1.6';
+            src: url('BoldPixels.ttf');
+            font-weight: bold;
+        }
+
+        :root {
+            --pink-neon: #ff0055;
+            --bg-dark: #000000;
+            --journal-cover: #4a2c1d;
+            --journal-page: #fdf6e3;
+            --tape-color: rgba(255, 182, 193, 0.6);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+        body, html { width: 100%; height: 100%; background: var(--bg-dark); overflow: hidden; font-family: 'Share Tech Mono', monospace; }
+
+        /* --- UI ELEMENTS --- */
+        #start-overlay {
+            position: fixed; inset: 0; background: black; z-index: 5000;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .btn-start {
+            padding: 15px 25px; border: 2px solid var(--pink-neon); color: white;
+            background: none; border-radius: 5px; box-shadow: 0 0 15px var(--pink-neon);
+            letter-spacing: 2px; cursor: pointer; font-size: 1rem;
+        }
+
+        #loading-screen {
+            position: fixed; inset: 0; display: none; justify-content: center; 
+            align-items: center; z-index: 4000; background: black; color: white;
+            font-size: 1.2rem; text-align: center; padding: 30px;
+        }
+
+        /* --- CANVASES --- */
+        #canvas-container { position: relative; width: 100%; height: 100%; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #star-canvas { z-index: 1; opacity: 0; }
+        #matrix-canvas { z-index: 1; }
+        #particle-canvas { z-index: 10; pointer-events: none; }
+
+        /* --- SCENE 2 STICKER --- */
+        #sticker-container {
+            position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%); 
+            z-index: 20; display: none; text-align: center; width: 80%;
+        }
+        #hbd-sticker { max-width: 280px; width: 100%; height: auto; opacity: 0; transform: scale(0.5); }
+
+        /* --- SCENE 3: LETTER --- */
+        #letter-scene {
+            position: fixed; inset: 0; z-index: 100; display: none;
+            justify-content: center; align-items: center; background: rgba(0,0,0,0.85); padding: 20px;
+        }
+        .envelope { width: 180px; height: 120px; background: #ff2d75; position: relative; cursor: pointer; border-radius: 0 0 5px 5px; }
+        .envelope::before {
+            content: ""; position: absolute; top: -90px; left: 0;
+            border-left: 90px solid transparent; border-right: 90px solid transparent;
+            border-bottom: 90px solid #ff4d8d; transition: 0.5s; z-index: 2;
+        }
+        .envelope.open::before { transform: rotateX(180deg); transform-origin: bottom; }
+        #paper {
+            position: absolute; bottom: 5px; left: 5px; width: 170px; height: 110px;
+            background: white; border-radius: 5px; transition: 0.8s; z-index: 1;
+            padding: 15px; overflow-y: auto; font-family: 'Dancing Script', cursive;
+            color: #333; font-size: 1rem; line-height: 1.4; display: flex; flex-direction: column;
+        }
+        .envelope.open #paper { 
+            width: 85vw; max-width: 300px; height: 70vh; max-height: 350px;
+            bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 5; 
+        }
+        .signature { margin-top: auto; text-align: right; opacity: 0; transition: 1s; padding-top: 20px; font-size: 1.1rem; }
+        
+        #btn-to-album { 
+            display: none; margin-top: 20px; padding: 12px; 
+            background: var(--pink-neon); color: white; border: none; 
+            border-radius: 5px; cursor: pointer; font-family: sans-serif;
+            font-weight: bold; font-size: 1rem;
+        }
+
+        /* --- SCENE 4: 3D JOURNAL BOOK --- */
+        #album-scene {
+            position: fixed; inset: 0; z-index: 300; display: none;
+            perspective: 2500px;
+            background: radial-gradient(circle, #fff0f5 0%, #ffe4ec 100%);
+            justify-content: center; align-items: center;
+        }
+
+        .book-viewport {
+            width: 650px; height: 450px;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .book-viewport.open { transform: translateX(160px); }
+
+        .book {
+            position: relative; width: 320px; height: 100%;
+            transform-style: preserve-3d;
+            transform-origin: left;
+            transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1);
+        }
+
+        .journal-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: var(--pink-neon); color: white; border: none;
+            width: 60px; height: 60px; border-radius: 50%; cursor: pointer;
+            font-size: 1.8rem; display: flex; align-items: center; justify-content: center;
+            z-index: 6000; box-shadow: 0 0 15px var(--pink-neon); transition: all 0.3s ease;
+        }
+        .nav-prev { left: 40px; }
+        .nav-next { right: 40px; }
+
+        .leaf {
+            position: absolute; width: 100%; height: 100%;
+            transform-style: preserve-3d; transform-origin: left;
+            transition: transform 1.2s cubic-bezier(0.645, 0.045, 0.355, 1); z-index: 1;
+        }
+        .leaf.flipped { transform: rotateY(-180deg); }
+
+        .page {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; padding: 30px;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .page-design {
+            background-color: var(--journal-page);
+            background-image: linear-gradient(90deg, transparent 79px, #abced4 79px, #abced4 81px, transparent 81px),
+                              linear-gradient(#eee .1em, transparent .1em);
+            background-size: 100% 1.2rem;
+            border-left: 2px solid #d0c0a0;
+            box-shadow: inset 3px 0 10px rgba(0,0,0,0.05);
+        }
+        .page-front { z-index: 2; border-radius: 0 15px 15px 0; }
+        .page-back { 
+            transform: rotateY(-180deg); z-index: 1; 
+            border-radius: 15px 0 0 15px; border-right: 2px solid #d0c0a0;
+        }
+
+        .cover {
+            background-color: var(--journal-cover); color: #f0e0d0;
+            justify-content: center; align-items: center; text-align: center;
+            border-radius: 0 15px 15px 0; box-shadow: 5px 5px 20px rgba(0,0,0,0.3);
+        }
+        .cover h2 { font-family: 'Dancing Script'; font-size: 2.8rem; }
+
+        .polaroid-clip {
+            background: white; padding: 10px 10px 25px 10px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.2);
+            width: 90%; margin: 0 auto; position: relative;
+        }
+        .polaroid-clip img { width: 100%; height: 180px; object-fit: cover; border: 1px solid #eee; }
+        
+        .washi-tape {
+            position: absolute; width: 100px; height: 30px;
+            background-color: var(--tape-color); transform: rotate(-15deg);
+            top: -10px; left: -20px; border-left: 2px dashed rgba(0,0,0,0.1);
+        }
+
+        .journal-text { font-family: 'Dancing Script', cursive; color: #333; margin-top: 15px; text-align: center; }
+
+        /* --- SCENE 5: TRANSFORM --- */
+        #transformation-scene {
+            position: fixed; inset: 0; z-index: 500; display: none;
+            background: radial-gradient(circle, #1a0008 0%, #000 100%);
+            overflow: hidden;
+        }
+        .swarm-photo {
+            position: absolute; object-fit: cover; border: 2px solid #fff;
+            border-radius: 10px; box-shadow: 0 0 20px var(--pink-neon);
+            z-index: 550;
+        }
+        .sparkle {
+            position: absolute; width: 4px; height: 4px; background: #fff;
+            border-radius: 50%; pointer-events: none; z-index: 600;
+            box-shadow: 0 0 10px var(--pink-neon), 0 0 20px var(--pink-neon);
+        }
+        #final-message {
+            position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+            color: white; font-family: 'Dancing Script', cursive; font-size: 2.5rem;
+            text-align: center; opacity: 0; text-shadow: 0 0 20px var(--pink-neon);
+        }
+
+        @media (max-width: 600px) {
+            .book-viewport { width: 300px; height: 400px; }
+            .nav-prev { left: 10px; } .nav-next { right: 10px; }
+            .journal-nav-btn { width: 45px; height: 45px; font-size: 1.2rem; }
+            #final-message { font-size: 1.8rem; width: 90%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay" onclick="startExperience()">
+        <button class="btn-start">RING RING !! 🔔</button>
+    </div>
+
+    <div id="loading-screen">
+        <div><span id="narration"></span><span class="cursor"></span></div>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="matrix-canvas"></canvas>
+        <canvas id="star-canvas"></canvas>
+        <canvas id="particle-canvas"></canvas>
+    </div>
+
+    <div id="sticker-container">
+        <img src="/5784082.jpg" id="hbd-sticker">
+    </div>
+
+    <div id="letter-scene">
+        <div class="envelope" id="envelope" onclick="openLetter()">
+            <div id="paper">
+                <p id="letter-text"></p>
+                <div class="signature" id="signature">
+                    Penulis,<br><br>
+                    <strong>Nabiel Arinaullah</strong>
+                </div>
+                <button id="btn-to-album" onclick="goToJournal()">Aku dan Dirimu</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="album-scene">
+        <button class="journal-nav-btn nav-prev" onclick="prevLeaf()">❮</button>
+        <button class="journal-nav-btn nav-next" onclick="nextLeaf()">❯</button>
+        <div class="book-viewport" id="book-viewport">
+            <div class="book" id="main-book"></div>
+        </div>
+    </div>
+
+    <div id="transformation-scene">
+        <div id="photo-swarm-container"></div>
+    </div>
+
+    <script>
+        const mCanvas = document.getElementById('matrix-canvas');
+        const sCanvas = document.getElementById('star-canvas');
+        const pCanvas = document.getElementById('particle-canvas');
+        const mCtx = mCanvas.getContext('2d');
+        const sCtx = sCanvas.getContext('2d');
+        const pCtx = pCanvas.getContext('2d');
+
+        const typingSFX = new Audio('https://www.soundjay.com/communication/sounds/typewriter-key-1.mp3');
+        const charStr = "HAPPYBIRTHDAY";
+        let drops = [], stars = [], matrixInterval;
+        let isMobile = window.innerWidth < 600;
+
+        const journalData = [
+            { type: "cover-front", title: "Love of My Life", desc: "Untukmu semestaku." },
+            { kiri: { title: "Pertemuan", desc: "Di antara milyaran langkah di dunia, entah bagaimana semesta mempertemukan kita (24 September 2024)", img: "foto2.jpg" },
+              kanan: { title: "Senyuman Bianglala", desc: "Senyummu seperti bianglala di langit senja, tampak tenang setelah badai.", img: "foto1.jpg" } },
+            { kiri: { title: "Jejak Waktu", desc: "Bersamamu, waktu tak lagi sekadar berjalan, ia berubah menjadi kenangan yang manis.", img: "foto3.jpg" },
+              kanan: { title: "Rumah", desc: "Jika dunia adalah perjalanan panjang, maka kamu adalah tempat pulangku.", img: "foto4.jpg" } },
+            { kiri: { title: "Cakrawala", desc: "Kita berjalan memandang cakrawala yang sama, percaya langkah ini beriringan.", img: "foto5.jpg" },
+              kanan: { title: "Semesta", desc: "Di antara luasnya dunia, aku menemukan seluruh semestaku di dalam dirimu.", img: "foto6.jpg" } },
+            { type: "cover-back", title: "Selamanya", desc: "Dan selama semesta masih berputar, aku ingin tetap tinggal ❤️." }
+        ];
+
+        function init() {
+            
+            
+            mCanvas.width = sCanvas.width = pCanvas.width = window.innerWidth;
+            mCanvas.height = sCanvas.height = pCanvas.height = window.innerHeight;
+            isMobile = window.innerWidth < 600;
+            let spacing = isMobile ? 7 : 10;
+            let cols = Math.floor(mCanvas.width / spacing);
+            drops = []; for(let i=0; i<cols; i++) drops[i] = Math.random() * -100;
+            stars = []; for(let i=0; i<(isMobile ? 150 : 300); i++) {
+                stars.push({ x: Math.random() * sCanvas.width, y: Math.random() * sCanvas.height, size: Math.random() * 1.5, opacity: Math.random() });
+            }
+            
+        }
+
+        function drawMatrix() {
+    mCtx.fillStyle = "rgba(0, 0, 0, 0.12)"; 
+    mCtx.fillRect(0, 0, mCanvas.width, mCanvas.height);
+    
+    let fontSize = isMobile ? 22 : 30; 
+    let spacing = isMobile ? 8 : 10;
+    mCtx.font = `bold ${fontSize}px 'Share Tech Mono'`;
+
+    for(let i=0; i<drops.length; i++) {
+        const txt = charStr[Math.floor(Math.random()*charStr.length)];
+        const char = String.fromCharCode(0x30A0 + Math.random() * 96);
+        
+        mCtx.shadowBlur = 10; 
+        mCtx.shadowColor = "#ff0055"; 
+        mCtx.fillStyle = "#ffdeeb"; 
+
+        const x = i * fontSize; 
+        const y = drops[i] * fontSize; // Kita gunakan drops[i] sebagai angka posisi
+
+        mCtx.fillText(char, x, y);
+        // Baris ini opsional jika kamu hanya ingin satu jenis teks yang muncul
+        // mCtx.fillText(txt, i * spacing, y); 
+
+        mCtx.shadowBlur = 0;
+
+        // Reset jika teks sudah sampai bawah layar
+        if(y > mCanvas.height && Math.random() > 0.95) {
+            drops[i] = 0;
+        }
+
+        // PENGATUR KECEPATAN:
+        // Coba ganti 1.8 menjadi angka yang lebih kecil, misalnya 0.5 atau 0.8
+        drops[i] += 0.8; 
+        
+    }
+}
+
+        function drawStars() {
+            sCtx.fillStyle = "black"; sCtx.fillRect(0, 0, sCanvas.width, sCanvas.height);
+            sCtx.fillStyle = "white";
+            stars.forEach(star => {
+                sCtx.globalAlpha = star.opacity + (Math.sin(Date.now() * 0.001 + star.x) * 0.2);
+                sCtx.beginPath(); sCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2); sCtx.fill();
+            });
+            requestAnimationFrame(drawStars);
+        }
+
+        function drawParticleText(text, size = 100, isMainText = false) {
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+            pCtx.fillStyle = "white";
+            let finalSize = isMobile ? size * 0.65 : size;
+            pCtx.font = isMainText ? `bold ${finalSize}px 'BoldPixels1.6', sans-serif` : `bold ${finalSize}px 'Share Tech Mono'`;
+            pCtx.textAlign = "center"; pCtx.textBaseline = "middle";
+            pCtx.fillText(text, pCanvas.width / 2, pCanvas.height / 2);
+            const data = pCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+            let gap = isMobile ? 5 : 4;
+            for(let y=0; y<data.height; y+=gap) {
+                for(let x=0; x<data.width; x+=gap) {
+                    if(data.data[(y*4*data.width)+(x*4)+3] > 128) {
+                        pCtx.beginPath(); pCtx.arc(x, y, isMobile?1.5:2.2, 0, Math.PI*2);
+                        pCtx.fillStyle = "#ff2d75"; pCtx.shadowBlur = 10; pCtx.shadowColor = "#ff0055"; pCtx.fill();
+                    }
+                }
+            }
+        }
+
+        async function startExperience() {
+            document.getElementById('start-overlay').style.display = 'none';
+            const load = document.getElementById('loading-screen');
+            load.style.display = 'flex';
+            const narrate = async (t) => {
+                const el = document.getElementById('narration'); el.innerHTML = "";
+                for(let c of t) { el.innerHTML += c; let s = typingSFX.cloneNode(); s.volume = 0.2; s.play().catch(()=>{}); await new Promise(r => setTimeout(r, 70)); }
+            };
+            await narrate("Preparing something special..."); await new Promise(r => setTimeout(r, 1000));
+            document.getElementById('narration').innerHTML = ""; await narrate("...upps sorry, you're already special for me. ❤️"); await new Promise(r => setTimeout(r, 1500));
+            gsap.to("#loading-screen", { opacity: 0, duration: 1, onComplete: scene1 });
+        }
+
+        function scene1() {
+            document.getElementById('loading-screen').style.display = 'none';
+            matrixInterval = setInterval(drawMatrix, 25); 
+            const tl = gsap.timeline();
+            [1, 2, 3].forEach(n => { tl.call(() => drawParticleText(n.toString(), 280, false)).fromTo("#particle-canvas", {opacity:0, scale:0.3}, {opacity:1, scale:1, duration:0.6}).to("#particle-canvas", {opacity:0, scale:2, duration:0.3}, "+=0.4"); });
+            ["SELAMAT", "BERTAMBAH", "USIA", "SAYANGKU", "❤️"].forEach(w => { tl.call(() => drawParticleText(w, w==="❤️"?180:90, true)).fromTo("#particle-canvas", {opacity:0, y:30}, {opacity:1, y:0, duration:0.7}).to("#particle-canvas", {opacity:0, y:-30, duration:0.5}, "+=1.3"); });
+            tl.call(scene2, null, "+=0.5");
+        }
+
+        async function scene2() {
+            clearInterval(matrixInterval);
+            gsap.to("#matrix-canvas", { opacity: 0, duration: 1.5 });
+            gsap.to("#star-canvas", { opacity: 1, duration: 1.5 });
+            drawStars();
+            const stickerCont = document.getElementById('sticker-container'); stickerCont.style.display = 'block';
+            gsap.to("#hbd-sticker", { opacity: 1, scale: 1, duration: 1.2, ease: "back.out(1.7)" });
+            await new Promise(r => setTimeout(r, 4000));
+            gsap.to(stickerCont, { opacity: 0, duration: 1, onComplete: scene3 });
+        }
+
+        function scene3() {
+            document.getElementById('letter-scene').style.display = 'flex';
+            gsap.from(".envelope", { y: 500, duration: 1.5, ease: "power4.out" });
+        }
+
+        async function openLetter() {
+            const env = document.getElementById('envelope'); if(env.classList.contains('open')) return; env.classList.add('open');
+            await new Promise(r => setTimeout(r, 1000));
+            const text = "Hai Sayang... \n\nSelamat ulang tahun ya! Aku bersyukur banget bisa ada di samping kamu sampai hari ini. Semoga di umur yang baru ini, kamu makin bahagia, makin kuat, dan semua impian kamu satu-satu tercapai. \n\nTerima kasih sudah jadi orang yang paling sabar dan luar biasa buat aku. I love you so much! ❤️";
+            const el = document.getElementById('letter-text');
+            for(let char of text) { el.innerHTML += char === "\n" ? "<br>" : char; let s = typingSFX.cloneNode(); s.volume = 0.1; s.play().catch(()=>{}); await new Promise(r => setTimeout(r, 50)); }
+            document.getElementById('signature').style.opacity = '1';
+            document.getElementById('btn-to-album').style.display = 'inline-block';
+        }
+
+        function goToJournal() {
+            gsap.to("#letter-scene", { opacity: 0, duration: 1, onComplete: () => {
+                document.getElementById('letter-scene').style.display = 'none';
+                initJournal();
+            }});
+        }
+
+        let currentLeaf = 0, totalLeafs = 0;
+
+        function initJournal() {
+            const book = document.getElementById('main-book');
+            document.getElementById('album-scene').style.display = 'flex';
+            createCoverLeaf(book, journalData[0]); 
+            for(let i=1; i < journalData.length - 1; i++) createContentLeaf(book, journalData[i], i);
+            createCoverLeaf(book, journalData[journalData.length-1], true);
+            totalLeafs = document.querySelectorAll('.leaf').length;
+            gsap.from("#book-viewport", { scale: 0.5, opacity: 0, duration: 1.5, ease: "back.out(1.5)" });
+        }
+
+        function getPageHTML(data) {
+            const tilt = (Math.random() * 6 - 3).toFixed(2);
+            return `
+                <div class="photo-zone" style="transform: rotate(${tilt}deg)">
+                    <div class="polaroid-clip"><div class="washi-tape"></div><img src="${data.img}"></div>
+                </div>
+                <div class="journal-text"><h3>${data.title}</h3><p>${data.desc}</p></div>
+            `;
+        }
+
+        function createContentLeaf(book, dataPair, index) {
+            const leaf = document.createElement('div'); leaf.className = 'leaf';
+            leaf.style.zIndex = journalData.length - index;
+            leaf.innerHTML = `<div class="page page-design page-front">${getPageHTML(dataPair.kanan)}</div><div class="page page-design page-back">${getPageHTML(dataPair.kiri)}</div>`;
+            book.appendChild(leaf);
+        }
+
+        function createCoverLeaf(book, data, isBackCover = false) {
+            const leaf = document.createElement('div'); leaf.className = 'leaf';
+            if(!isBackCover) {
+                leaf.style.zIndex = journalData.length + 10;
+                leaf.innerHTML = `<div class="page cover page-front"><h2>${data.title}</h2><p style="margin-top:20px;">${data.desc}</p></div><div class="page page-design page-back"><p style="text-align:center; font-family:'Dancing Script'; margin-top:50%;">Our Story Begins...</p></div>`;
+            } else {
+                leaf.style.zIndex = 0;
+                leaf.innerHTML = `<div class="page page-design page-front"><p style="text-align:center; font-family:'Dancing Script'; margin-top:50%;">The end of this chapter...</p></div><div class="page cover page-back" style="background-color:#4a2c1d;"><h2>${data.title}</h2><p style="margin-top:20px;">${data.desc}</p></div>`;
+            }
+            book.appendChild(leaf);
+        }
+
+        function nextLeaf() {
+            const leafs = document.querySelectorAll('.leaf');
+            const viewport = document.getElementById('book-viewport');
+            if(currentLeaf < totalLeafs) {
+                leafs[currentLeaf].classList.add('flipped');
+                let turned = leafs[currentLeaf];
+                setTimeout(() => { turned.style.zIndex = currentLeaf + 1; }, 600);
+                if(currentLeaf === 0) viewport.classList.add('open');
+                currentLeaf++;
+                if(currentLeaf === totalLeafs) setTimeout(startScene5, 2000);
+            }
+        }
+
+        function prevLeaf() {
+            const leafs = document.querySelectorAll('.leaf');
+            const viewport = document.getElementById('book-viewport');
+            if(currentLeaf > 0) {
+                currentLeaf--;
+                leafs[currentLeaf].classList.remove('flipped');
+                leafs[currentLeaf].style.zIndex = journalData.length + 10 - currentLeaf;
+                if(currentLeaf === 0) viewport.classList.remove('open');
+            }
+        }
+
+        /* --- SCENE 5 LOGIC --- */
+        function createSparkle(x, y) {
+            const s = document.createElement('div'); s.className = 'sparkle';
+            document.getElementById('transformation-scene').appendChild(s);
+            gsap.set(s, { x: x, y: y, scale: Math.random() * 2 });
+            gsap.to(s, { opacity: 0, scale: 0, y: y + (Math.random()-0.5)*50, duration: 1, onComplete: () => s.remove() });
+        }
+
+        function startScene5() {
+            const albumScene = document.getElementById('album-scene');
+            const transScene = document.getElementById('transformation-scene');
+            const swarmCont = document.getElementById('photo-swarm-container');
+            
+            gsap.to(albumScene, { opacity: 0, duration: 1.5, onComplete: () => {
+                albumScene.style.display = 'none'; transScene.style.display = 'block';
+            }});
+
+            const photoPool = [];
+            journalData.forEach(d => { if(d.kiri) photoPool.push(d.kiri.img, d.kanan.img); });
+
+            const totalPhotos = 24, centerX = window.innerWidth / 2, centerY = window.innerHeight / 2;
+
+            for(let i=0; i<totalPhotos; i++) {
+                const img = document.createElement('img');
+                img.src = photoPool[i % photoPool.length]; img.className = 'swarm-photo';
+                Object.assign(img.style, { width: isMobile?'70px':'110px', height: isMobile?'70px':'110px', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', opacity: 0 });
+                swarmCont.appendChild(img);
+
+                const tl = gsap.timeline({ delay: i * 0.1 });
+                // Phase 1: Explosion
+                tl.to(img, {
+                    x: (Math.random() - 0.5) * window.innerWidth * 0.8,
+                    y: (Math.random() - 0.5) * window.innerHeight * 0.8,
+                    rotation: Math.random() * 720, opacity: 1, duration: 2, ease: "power2.out",
+                    onUpdate: function() { if(Math.random() > 0.8) createSparkle(gsap.getProperty(img, "x") + centerX, gsap.getProperty(img, "y") + centerY); }
+                });
+
+                // Phase 2: Heart Formation
+                const t = (i / totalPhotos) * Math.PI * 2;
+                const tx = 16 * Math.pow(Math.sin(t), 3);
+                const ty = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                const scale = isMobile ? 12 : 18;
+                const yOffset = isMobile ? 120 : 320;
+
+                tl.to(img, { x: (tx * scale),
+                    y: (ty * scale) + yOffset,
+                    xPercent: -50, // Memastikan titik tengah foto yang jadi patokan
+                    yPercent: -50,
+                    rotation: 0, duration: 3, ease: "expo.inOut" }, "+=0.5");
+            }
+
+            gsap.delayedCall(6, () => {
+                gsap.to(swarmCont, { scale: 1.05, duration: 0.8, repeat: -1, yoyo: true, ease: "sine.inOut" });
+                gsap.to("#final-message", { opacity: 1, y: -20, duration: 2 });
+            });
+        }
+
+        window.addEventListener('resize', init);
+            init();
+    </script>
+</body>
+</html>
